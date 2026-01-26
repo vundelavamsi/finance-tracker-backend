@@ -13,5 +13,7 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     
-    # Relationship to transactions
+    # Relationships
     transactions = relationship("Transaction", back_populates="user")
+    accounts = relationship("Account", back_populates="user")
+    categories = relationship("Category", back_populates="user")

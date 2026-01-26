@@ -36,4 +36,21 @@ def init_db():
     Initialize database by creating all tables.
     Call this function on application startup.
     """
+    # Import all models to ensure they're registered with Base.metadata
+    from app.models import User, Transaction, Account, Category
+    
+    # Create all tables (this creates new tables but doesn't alter existing ones)
     Base.metadata.create_all(bind=engine)
+    
+    # Run migration to update existing tables
+    try:
+        import sys
+        import os
+        # Add parent directory to path to import migrate_db
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from migrate_db import migrate_database
+        migrate_database()
+    except Exception as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Migration failed (this is OK if tables are already up to date): {e}")

@@ -4,7 +4,7 @@ import logging
 from contextlib import asynccontextmanager
 
 from app.database import init_db
-from app.api import webhooks
+from app.api import webhooks, transactions, accounts, categories, dashboard, users
 from app.config import settings
 
 # Configure logging
@@ -56,6 +56,11 @@ app.add_middleware(
 
 # Include routers
 app.include_router(webhooks.router)
+app.include_router(transactions.router)
+app.include_router(accounts.router)
+app.include_router(categories.router)
+app.include_router(dashboard.router)
+app.include_router(users.router)
 
 
 @app.get("/")
