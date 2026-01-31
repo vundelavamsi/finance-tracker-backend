@@ -14,29 +14,42 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/webhook", tags=["webhooks"])
 
 
-def get_or_create_user(db: Session, telegram_id: str) -> User:
+def _normalize_telegram_username(username: str) -> str:
+    """Strip leading @ and lowercase."""
+    if not username:
+        return ""
+    return username.strip().lstrip("@").lower()
+
+
+def get_or_create_user(db: Session, telegram_id: str, from_user: dict | None = None) -> User:
     """
     Get existing user or create a new one based on Telegram ID.
-    
-    Args:
-        db: Database session
-        telegram_id: Telegram user ID
-        
-    Returns:
-        User instance
+    Stores/updates telegram_username from message.from.username.
     """
     user = db.query(User).filter(User.telegram_id == str(telegram_id)).first()
-    
+    username_str = None
+    if from_user:
+        username_str = from_user.get("username")
+        if username_str:
+            username_str = _normalize_telegram_username(username_str)
     if not user:
         user = User(
             telegram_id=str(telegram_id),
-            is_active=True
+            telegram_username=username_str,
+            email=None,
+            phone=None,
+            password_hash=None,
+            is_active=True,
         )
         db.add(user)
         db.commit()
         db.refresh(user)
         logger.info(f"Created new user with telegram_id: {telegram_id}")
-    
+    else:
+        if username_str is not None:
+            user.telegram_username = username_str
+            db.commit()
+            db.refresh(user)
     return user
 
 
@@ -71,8 +84,8 @@ async def telegram_webhook(
             logger.warning("Message without user ID")
             return {"ok": True}
         
-        # Get or create user
-        user = get_or_create_user(db, str(telegram_user_id))
+        # Get or create user (store/update telegram_username from message.from)
+        user = get_or_create_user(db, str(telegram_user_id), from_user=from_user)
         
         parsed_data = None
         
@@ -136,7 +149,8 @@ async def telegram_webhook(
             amount=str(parsed_data.get("amount", "")),
             currency=parsed_data.get("currency", "INR"),
             merchant=parsed_data.get("merchant"),
-            category=parsed_data.get("category"),
+            category_id=None,
+            account_id=None,
             source_image_url=None,  # TODO: Store image URL if implementing storage
             status="PENDING"
         )

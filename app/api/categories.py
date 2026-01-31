@@ -4,27 +4,26 @@ from typing import List
 import logging
 
 from app.database import get_db
-from app.models import Category
+from app.models import Category, User
 from app.schemas import CategoryResponse, CategoryCreate, CategoryUpdate
+from app.api.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/categories", tags=["categories"])
 
-# Default user ID for MVP
-DEFAULT_USER_ID = 1
 
-
-@router.get("/", response_model=List[CategoryResponse])
+@router.get("", response_model=List[CategoryResponse])
 async def get_categories(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
-    Get list of all categories for the default user.
+    Get list of all categories for the current user.
     """
     try:
         categories = db.query(Category).filter(
-            Category.user_id == DEFAULT_USER_ID,
+            Category.user_id == current_user.id,
             Category.is_active == True
         ).order_by(Category.name).all()
         
@@ -38,14 +37,15 @@ async def get_categories(
 @router.get("/{category_id}", response_model=CategoryResponse)
 async def get_category(
     category_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get a single category by ID.
     """
     category = db.query(Category).filter(
         Category.id == category_id,
-        Category.user_id == DEFAULT_USER_ID
+        Category.user_id == current_user.id
     ).first()
     
     if not category:
@@ -54,10 +54,11 @@ async def get_category(
     return category
 
 
-@router.post("/", response_model=CategoryResponse, status_code=201)
+@router.post("", response_model=CategoryResponse, status_code=201)
 async def create_category(
     category: CategoryCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Create a new category.
@@ -66,14 +67,14 @@ async def create_category(
         # Check if category name already exists for this user
         existing = db.query(Category).filter(
             Category.name == category.name,
-            Category.user_id == DEFAULT_USER_ID
+            Category.user_id == current_user.id
         ).first()
         
         if existing:
             raise HTTPException(status_code=400, detail="Category with this name already exists")
         
         db_category = Category(
-            user_id=DEFAULT_USER_ID,
+            user_id=current_user.id,
             name=category.name,
             description=category.description,
             color=category.color,
@@ -99,14 +100,15 @@ async def create_category(
 async def update_category(
     category_id: int,
     category_update: CategoryUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update an existing category.
     """
     db_category = db.query(Category).filter(
         Category.id == category_id,
-        Category.user_id == DEFAULT_USER_ID
+        Category.user_id == current_user.id
     ).first()
     
     if not db_category:
@@ -117,7 +119,7 @@ async def update_category(
         if category_update.name and category_update.name != db_category.name:
             existing = db.query(Category).filter(
                 Category.name == category_update.name,
-                Category.user_id == DEFAULT_USER_ID,
+                Category.user_id == current_user.id,
                 Category.id != category_id
             ).first()
             
@@ -125,7 +127,7 @@ async def update_category(
                 raise HTTPException(status_code=400, detail="Category with this name already exists")
         
         # Update fields
-        update_data = category_update.dict(exclude_unset=True)
+        update_data = category_update.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(db_category, field, value)
         
@@ -145,14 +147,15 @@ async def update_category(
 @router.delete("/{category_id}", status_code=204)
 async def delete_category(
     category_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Soft delete a category (set is_active to False).
     """
     db_category = db.query(Category).filter(
         Category.id == category_id,
-        Category.user_id == DEFAULT_USER_ID
+        Category.user_id == current_user.id
     ).first()
     
     if not db_category:

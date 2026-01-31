@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     # Image storage (for future use)
     image_storage_path: str = "./storage/images"
     
+    # JWT configuration
+    jwt_secret_key: str = "change-me-in-production-use-env"
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 1440  # 24 hours
+    
+    # Magic link (Telegram username login)
+    magic_link_base_url: Optional[str] = None  # e.g. https://app.example.com/auth/verify
+    magic_link_expire_minutes: int = 10
+    
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"

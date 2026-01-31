@@ -4,27 +4,26 @@ from typing import List
 import logging
 
 from app.database import get_db
-from app.models import Account
+from app.models import Account, User
 from app.schemas import AccountResponse, AccountCreate, AccountUpdate
+from app.api.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/accounts", tags=["accounts"])
 
-# Default user ID for MVP
-DEFAULT_USER_ID = 1
 
-
-@router.get("/", response_model=List[AccountResponse])
+@router.get("", response_model=List[AccountResponse])
 async def get_accounts(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
-    Get list of all accounts for the default user.
+    Get list of all accounts for the current user.
     """
     try:
         accounts = db.query(Account).filter(
-            Account.user_id == DEFAULT_USER_ID,
+            Account.user_id == current_user.id,
             Account.is_active == True
         ).order_by(Account.created_at.desc()).all()
         
@@ -38,14 +37,15 @@ async def get_accounts(
 @router.get("/{account_id}", response_model=AccountResponse)
 async def get_account(
     account_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get a single account by ID.
     """
     account = db.query(Account).filter(
         Account.id == account_id,
-        Account.user_id == DEFAULT_USER_ID
+        Account.user_id == current_user.id
     ).first()
     
     if not account:
@@ -54,17 +54,18 @@ async def get_account(
     return account
 
 
-@router.post("/", response_model=AccountResponse, status_code=201)
+@router.post("", response_model=AccountResponse, status_code=201)
 async def create_account(
     account: AccountCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Create a new account.
     """
     try:
         db_account = Account(
-            user_id=DEFAULT_USER_ID,
+            user_id=current_user.id,
             name=account.name,
             account_type=account.account_type,
             balance=account.balance,
@@ -88,14 +89,15 @@ async def create_account(
 async def update_account(
     account_id: int,
     account_update: AccountUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update an existing account.
     """
     db_account = db.query(Account).filter(
         Account.id == account_id,
-        Account.user_id == DEFAULT_USER_ID
+        Account.user_id == current_user.id
     ).first()
     
     if not db_account:
@@ -103,7 +105,7 @@ async def update_account(
     
     try:
         # Update fields
-        update_data = account_update.dict(exclude_unset=True)
+        update_data = account_update.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(db_account, field, value)
         
@@ -121,14 +123,15 @@ async def update_account(
 @router.delete("/{account_id}", status_code=204)
 async def delete_account(
     account_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Soft delete an account (set is_active to False).
     """
     db_account = db.query(Account).filter(
         Account.id == account_id,
-        Account.user_id == DEFAULT_USER_ID
+        Account.user_id == current_user.id
     ).first()
     
     if not db_account:

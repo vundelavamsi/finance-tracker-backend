@@ -94,6 +94,48 @@ def migrate_database():
                     logger.info("Dropped old category column")
                 else:
                     logger.info("Old category column does not exist")
+
+                # --- Users table: hybrid auth columns ---
+                for col, col_type in [
+                    ("telegram_username", "VARCHAR"),
+                    ("password_hash", "VARCHAR"),
+                    ("phone", "VARCHAR"),
+                ]:
+                    result = conn.execute(text("""
+                        SELECT column_name FROM information_schema.columns
+                        WHERE table_name='users' AND column_name=%s
+                    """ % ("'" + col + "'",)))
+                    if result.fetchone() is None:
+                        logger.info("Adding users.%s column...", col)
+                        conn.execute(text("ALTER TABLE users ADD COLUMN " + col + " " + col_type))
+                        logger.info("Added users.%s", col)
+
+                # Make telegram_id nullable
+                try:
+                    conn.execute(text("ALTER TABLE users ALTER COLUMN telegram_id DROP NOT NULL"))
+                    logger.info("Made users.telegram_id nullable")
+                except Exception:
+                    pass  # might already be nullable
+
+                # Create one_time_login_tokens table if not exists (via create_all in init_db handles it; ensure table exists)
+                result = conn.execute(text("""
+                    SELECT table_name FROM information_schema.tables
+                    WHERE table_name='one_time_login_tokens'
+                """))
+                if result.fetchone() is None:
+                    logger.info("Creating one_time_login_tokens table...")
+                    conn.execute(text("""
+                        CREATE TABLE one_time_login_tokens (
+                            id SERIAL PRIMARY KEY,
+                            token VARCHAR UNIQUE NOT NULL,
+                            code VARCHAR,
+                            user_id INTEGER NOT NULL REFERENCES users(id),
+                            expires_at TIMESTAMP NOT NULL
+                        )
+                    """))
+                    conn.execute(text("CREATE INDEX ix_one_time_login_tokens_token ON one_time_login_tokens(token)"))
+                    conn.execute(text("CREATE INDEX ix_one_time_login_tokens_user_id ON one_time_login_tokens(user_id)"))
+                    logger.info("Created one_time_login_tokens table")
                 
                 # Commit the transaction
                 trans.commit()

@@ -6,18 +6,16 @@ from datetime import datetime, date
 import logging
 
 from app.database import get_db
-from app.models import Transaction, Category, Account
+from app.models import Transaction, Category, Account, User
 from app.schemas import TransactionResponse, TransactionCreate, TransactionUpdate
+from app.api.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/transactions", tags=["transactions"])
 
-# Default user ID for MVP
-DEFAULT_USER_ID = 1
 
-
-@router.get("/", response_model=List[TransactionResponse])
+@router.get("", response_model=List[TransactionResponse])
 async def get_transactions(
     start_date: Optional[date] = Query(None, description="Filter transactions from this date"),
     end_date: Optional[date] = Query(None, description="Filter transactions until this date"),
@@ -25,13 +23,14 @@ async def get_transactions(
     account_id: Optional[int] = Query(None, description="Filter by account ID"),
     limit: int = Query(100, ge=1, le=1000),
     offset: int = Query(0, ge=0),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get list of transactions with optional filters.
     """
     try:
-        query = db.query(Transaction).filter(Transaction.user_id == DEFAULT_USER_ID)
+        query = db.query(Transaction).filter(Transaction.user_id == current_user.id)
         
         # Apply filters
         if start_date:
@@ -59,14 +58,15 @@ async def get_transactions(
 @router.get("/{transaction_id}", response_model=TransactionResponse)
 async def get_transaction(
     transaction_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get a single transaction by ID.
     """
     transaction = db.query(Transaction).filter(
         Transaction.id == transaction_id,
-        Transaction.user_id == DEFAULT_USER_ID
+        Transaction.user_id == current_user.id
     ).first()
     
     if not transaction:
@@ -75,10 +75,11 @@ async def get_transaction(
     return transaction
 
 
-@router.post("/", response_model=TransactionResponse, status_code=201)
+@router.post("", response_model=TransactionResponse, status_code=201)
 async def create_transaction(
     transaction: TransactionCreate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Create a new transaction.
@@ -88,7 +89,7 @@ async def create_transaction(
         if transaction.category_id:
             category = db.query(Category).filter(
                 Category.id == transaction.category_id,
-                Category.user_id == DEFAULT_USER_ID
+                Category.user_id == current_user.id
             ).first()
             if not category:
                 raise HTTPException(status_code=404, detail="Category not found")
@@ -97,14 +98,14 @@ async def create_transaction(
         if transaction.account_id:
             account = db.query(Account).filter(
                 Account.id == transaction.account_id,
-                Account.user_id == DEFAULT_USER_ID
+                Account.user_id == current_user.id
             ).first()
             if not account:
                 raise HTTPException(status_code=404, detail="Account not found")
         
         # Create transaction
         db_transaction = Transaction(
-            user_id=DEFAULT_USER_ID,
+            user_id=current_user.id,
             amount=transaction.amount,
             currency=transaction.currency,
             merchant=transaction.merchant,
@@ -132,14 +133,15 @@ async def create_transaction(
 async def update_transaction(
     transaction_id: int,
     transaction_update: TransactionUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Update an existing transaction.
     """
     db_transaction = db.query(Transaction).filter(
         Transaction.id == transaction_id,
-        Transaction.user_id == DEFAULT_USER_ID
+        Transaction.user_id == current_user.id
     ).first()
     
     if not db_transaction:
@@ -151,7 +153,7 @@ async def update_transaction(
             if transaction_update.category_id:
                 category = db.query(Category).filter(
                     Category.id == transaction_update.category_id,
-                    Category.user_id == DEFAULT_USER_ID
+                    Category.user_id == current_user.id
                 ).first()
                 if not category:
                     raise HTTPException(status_code=404, detail="Category not found")
@@ -161,7 +163,7 @@ async def update_transaction(
             if transaction_update.account_id:
                 account = db.query(Account).filter(
                     Account.id == transaction_update.account_id,
-                    Account.user_id == DEFAULT_USER_ID
+                    Account.user_id == current_user.id
                 ).first()
                 if not account:
                     raise HTTPException(status_code=404, detail="Account not found")
@@ -187,14 +189,15 @@ async def update_transaction(
 @router.delete("/{transaction_id}", status_code=204)
 async def delete_transaction(
     transaction_id: int,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Delete a transaction.
     """
     db_transaction = db.query(Transaction).filter(
         Transaction.id == transaction_id,
-        Transaction.user_id == DEFAULT_USER_ID
+        Transaction.user_id == current_user.id
     ).first()
     
     if not db_transaction:

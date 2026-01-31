@@ -6,19 +6,18 @@ from datetime import datetime, date, timedelta
 import logging
 
 from app.database import get_db
-from app.models import Transaction, Account, Category
+from app.models import Transaction, Account, Category, User
+from app.api.auth import get_current_user
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 
-# Default user ID for MVP
-DEFAULT_USER_ID = 1
-
 
 @router.get("/stats")
 async def get_dashboard_stats(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """
     Get dashboard statistics including:
@@ -31,7 +30,7 @@ async def get_dashboard_stats(
     try:
         # Get all transactions for the user
         transactions = db.query(Transaction).filter(
-            Transaction.user_id == DEFAULT_USER_ID
+            Transaction.user_id == current_user.id
         ).all()
         
         # Calculate totals (assuming negative amounts are expenses, positive are income)
@@ -91,7 +90,7 @@ async def get_dashboard_stats(
         
         # Account balances
         accounts = db.query(Account).filter(
-            Account.user_id == DEFAULT_USER_ID,
+            Account.user_id == current_user.id,
             Account.is_active == True
         ).all()
         
@@ -108,7 +107,7 @@ async def get_dashboard_stats(
         
         # Recent transactions (last 10)
         recent_transactions = db.query(Transaction).filter(
-            Transaction.user_id == DEFAULT_USER_ID
+            Transaction.user_id == current_user.id
         ).order_by(Transaction.created_at.desc()).limit(10).all()
         
         recent_txns = []

@@ -37,7 +37,7 @@ def init_db():
     Call this function on application startup.
     """
     # Import all models to ensure they're registered with Base.metadata
-    from app.models import User, Transaction, Account, Category
+    from app.models import User, Transaction, Account, Category, OneTimeLoginToken
     
     # Create all tables (this creates new tables but doesn't alter existing ones)
     Base.metadata.create_all(bind=engine)

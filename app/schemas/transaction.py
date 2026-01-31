@@ -1,5 +1,5 @@
-from pydantic import BaseModel, Field
-from typing import Optional
+from pydantic import BaseModel, Field, model_validator
+from typing import Optional, Any
 from datetime import datetime
 
 
@@ -15,8 +15,8 @@ class TransactionBase(BaseModel):
 
 
 class TransactionCreate(TransactionBase):
-    """Schema for creating a new transaction."""
-    user_id: int = 1  # Default user for MVP
+    """Schema for creating a new transaction (user_id set by backend from current user)."""
+    pass
 
 
 class TransactionUpdate(BaseModel):
@@ -64,8 +64,10 @@ class TransactionResponse(TransactionBase):
 
 class UserBase(BaseModel):
     """Base schema for user data."""
-    telegram_id: str
+    telegram_id: Optional[str] = None
+    telegram_username: Optional[str] = None
     email: Optional[str] = None
+    phone: Optional[str] = None
     is_active: bool = True
 
 
@@ -77,16 +79,34 @@ class UserCreate(UserBase):
 class UserUpdate(BaseModel):
     """Schema for updating user data."""
     email: Optional[str] = None
+    phone: Optional[str] = None
     is_active: Optional[bool] = None
 
 
 class UserResponse(UserBase):
-    """Schema for user response."""
+    """Schema for user response (no password_hash)."""
     id: int
+    has_password: bool = False
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def set_has_password(cls, v: Any, handler):
+        if hasattr(v, "password_hash"):
+            return cls(
+                id=v.id,
+                telegram_id=v.telegram_id,
+                telegram_username=v.telegram_username,
+                email=v.email,
+                phone=v.phone,
+                is_active=v.is_active,
+                created_at=v.created_at,
+                has_password=bool(v.password_hash),
+            )
+        return handler(v)
 
 
 class TelegramWebhookUpdate(BaseModel):
