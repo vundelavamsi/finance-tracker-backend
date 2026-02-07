@@ -53,7 +53,8 @@ async def get_dashboard_stats(
         monthly_data = []
         for i in range(6):
             month_start = (datetime.now() - timedelta(days=30 * i)).replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+            # End of last day (23:59:59.999999) so transactions on the last day are included
+            month_end = (month_start + timedelta(days=32)).replace(day=1) - timedelta(microseconds=1)
             
             month_transactions = [t for t in transactions 
                                  if month_start <= t.created_at <= month_end]

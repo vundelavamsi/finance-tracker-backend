@@ -7,7 +7,6 @@ from app.database import get_db
 from app.models import User, Transaction
 from app.services.parser_service import get_parser
 from app.services.telegram_service import telegram_service
-from app.services.text_parser import TextTransactionParser
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +108,12 @@ async def telegram_webhook(
             parsed_data = await parser.parse(image_bytes)
             
             # Validate parsed data
+            if parsed_data.get("_rate_limit"):
+                await telegram_service.send_message(
+                    chat_id,
+                    "⏳ Gemini API rate limit reached. Please try again in a minute or check your quota at https://ai.google.dev/gemini-api/docs/rate-limits"
+                )
+                return {"ok": True}
             if not parsed_data.get("amount"):
                 await telegram_service.send_message(
                     chat_id,
@@ -117,29 +122,33 @@ async def telegram_webhook(
                 return {"ok": True}
         
         else:
-            # Check for text message
+            # Check for text message — use same Gemini parser for consistency
             text = telegram_service.get_text_from_message(update)
-            
+
             if text:
-                # Parse text message for transaction data
-                text_parser = TextTransactionParser()
-                parsed_data = text_parser.parse(text)
-                
-                if not parsed_data:
+                await telegram_service.send_message(chat_id, "⏳ Processing your message...")
+                parser = get_parser()
+                parsed_data = await parser.parse_text(text)
+
+                if parsed_data.get("_rate_limit"):
                     await telegram_service.send_message(
                         chat_id,
-                        "❌ Could not understand your message. Please send:\n"
-                        "• A payment screenshot/invoice image, or\n"
-                        "• Text like: 'add 15rs as coffee' or 'spent 50 on food'"
+                        "⏳ Gemini API rate limit reached. Please try again in a minute or check your quota at https://ai.google.dev/gemini-api/docs/rate-limits"
+                    )
+                    return {"ok": True}
+                if parsed_data.get("amount") is None:
+                    await telegram_service.send_message(
+                        chat_id,
+                        "❌ Could not extract a transaction from your message. "
+                        "Try: 'spent 50 on food' or 'add 100 as salary', or send a payment screenshot."
                     )
                     return {"ok": True}
             else:
                 # Neither image nor text
                 await telegram_service.send_message(
                     chat_id,
-                    "📸 Please send:\n"
-                    "• A payment screenshot or invoice image, or\n"
-                    "• Text like: 'add 15rs as coffee' or 'spent 50 on food'"
+                    "📸 Please send a payment screenshot/invoice image, or text like "
+                    "'spent 50 on food' / 'add 100 as salary'."
                 )
                 return {"ok": True}
         

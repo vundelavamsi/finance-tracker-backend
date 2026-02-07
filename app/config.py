@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     
     # Gemini API configuration
     gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-flash"  # Override if hitting quota (e.g. gemini-1.5-flash)
     
     # Parser configuration
     parser_type: str = "GEMINI"  # GEMINI or LOCAL
