@@ -81,12 +81,14 @@ class UserUpdate(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     is_active: Optional[bool] = None
+    expense_sub_category_enabled: Optional[bool] = None
 
 
 class UserResponse(UserBase):
     """Schema for user response (no password_hash)."""
     id: int
     has_password: bool = False
+    expense_sub_category_enabled: bool = False
     created_at: datetime
 
     class Config:
@@ -105,6 +107,7 @@ class UserResponse(UserBase):
                 is_active=v.is_active,
                 created_at=v.created_at,
                 has_password=bool(v.password_hash),
+                expense_sub_category_enabled=getattr(v, "expense_sub_category_enabled", False),
             )
         return handler(v)
 

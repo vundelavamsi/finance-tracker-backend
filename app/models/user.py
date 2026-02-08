@@ -14,8 +14,9 @@ class User(Base):
     phone = Column(String, unique=True, index=True, nullable=True)
     password_hash = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
+    expense_sub_category_enabled = Column(Boolean, default=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-    
+
     # Relationships
     transactions = relationship("Transaction", back_populates="user")
     accounts = relationship("Account", back_populates="user")

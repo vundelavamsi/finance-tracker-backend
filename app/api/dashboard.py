@@ -72,13 +72,14 @@ async def get_dashboard_stats(
         
         monthly_data.reverse()  # Oldest to newest
         
-        # Category-wise spending
+        # Category-wise spending (only expense transactions, by category)
         category_spending = {}
         for txn in transactions:
             if txn.category_id and txn.category:
                 try:
-                    amount = abs(float(txn.amount))
-                    if amount < 0:  # Only count expenses
+                    amt = float(txn.amount)
+                    if amt < 0:  # Only count expenses (negative amounts)
+                        amount = abs(amt)
                         category_name = txn.category.name
                         category_spending[category_name] = category_spending.get(category_name, 0) + amount
                 except (ValueError, TypeError):

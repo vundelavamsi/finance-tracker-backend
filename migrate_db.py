@@ -117,6 +117,36 @@ def migrate_database():
                 except Exception:
                     pass  # might already be nullable
 
+                # --- Categories: category_type and parent_id ---
+                result = conn.execute(text("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name='categories' AND column_name='category_type'
+                """))
+                if result.fetchone() is None:
+                    logger.info("Adding categories.category_type column...")
+                    conn.execute(text("ALTER TABLE categories ADD COLUMN category_type VARCHAR(20) DEFAULT 'EXPENSE'"))
+                    conn.execute(text("UPDATE categories SET category_type = 'EXPENSE' WHERE category_type IS NULL"))
+                    conn.execute(text("ALTER TABLE categories ALTER COLUMN category_type SET NOT NULL"))
+                    logger.info("Added categories.category_type")
+                result = conn.execute(text("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name='categories' AND column_name='parent_id'
+                """))
+                if result.fetchone() is None:
+                    logger.info("Adding categories.parent_id column...")
+                    conn.execute(text("ALTER TABLE categories ADD COLUMN parent_id INTEGER REFERENCES categories(id)"))
+                    logger.info("Added categories.parent_id")
+
+                # --- Users: expense_sub_category_enabled ---
+                result = conn.execute(text("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name='users' AND column_name='expense_sub_category_enabled'
+                """))
+                if result.fetchone() is None:
+                    logger.info("Adding users.expense_sub_category_enabled column...")
+                    conn.execute(text("ALTER TABLE users ADD COLUMN expense_sub_category_enabled BOOLEAN DEFAULT FALSE"))
+                    logger.info("Added users.expense_sub_category_enabled")
+
                 # Create one_time_login_tokens table if not exists (via create_all in init_db handles it; ensure table exists)
                 result = conn.execute(text("""
                     SELECT table_name FROM information_schema.tables
